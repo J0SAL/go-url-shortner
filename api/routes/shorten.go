@@ -63,5 +63,36 @@ func ShortenURL(c *fiber.Ctx) error {
 
 	body.URL = helpers.enforceHTTP(body.URL)
 
+	// -- 
+	var id string
+
+	if body.CustomShort == "" {
+		id = uuid.New().String()[:6]
+	} else {
+		id = body.CustomShort
+	}
+
+	r := database.CreatClient(0)
+	defer r.close()
+
+	val, _ = r.Get(database.Ctx, id).Result()
+	if val != ""{
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "URL custom short is already in use"
+		})
+	}
+
+	if body.Expiry == 0 {
+		body.Expiry = 24
+	}
+
+	err = r.Set(database.Ctx, id, body.URL, body.Expiry * 3600 * time.Second)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternServerError).JSON(fiber.Map{
+			"error": "Unablel to connect to server"
+		})
+	}
+
 	r2.Decr(database.Ctx, c.IP())
 }
