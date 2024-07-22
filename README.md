@@ -1,7 +1,3 @@
-Here are some improvements to your README for the `go-url-shortner` project:
-
----
-
 # go-url-shortner
 
 ### Prerequisites
