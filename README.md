@@ -38,11 +38,11 @@ http://localhost:3000/<url-id>
 
 #### Request Schema
 
-```json
-{
-  "url": "string", // URL to be shortened
-  "short": "string", // Custom user ID (optional)
-  "expiry": "integer" // Expiration time in hours
+```go
+type request struct {
+    url               string    //  URL to be shortened
+    short             string    // Custom user ID (optional)
+    expiry            integer   // Expiration time in hours
 }
 ```
 
