@@ -1,10 +1,13 @@
 package routes
 
 import (
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/j0sal/go-url-shortner/database"
 	"github.com/j0sal/go-url-shortner/helpers"
 )
@@ -42,8 +45,8 @@ func ShortenURL(c *fiber.Ctx) error {
 		if valInt <= 0 {
 			limit, _ := r2.TTL(database.Ctx, c.IP()).Result()
 			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-				"error": "Rate limit exceeded",
-				"rate_limit_rest": limit / time.Nanosecond / time.Minute
+				"error":           "Rate limit exceeded",
+				"rate_limit_rest": limit / time.Nanosecond / time.Minute,
 			})
 		}
 	}
@@ -63,7 +66,7 @@ func ShortenURL(c *fiber.Ctx) error {
 
 	body.URL = helpers.enforceHTTP(body.URL)
 
-	// -- 
+	// --
 	var id string
 
 	if body.CustomShort == "" {
@@ -76,9 +79,9 @@ func ShortenURL(c *fiber.Ctx) error {
 	defer r.close()
 
 	val, _ = r.Get(database.Ctx, id).Result()
-	if val != ""{
+	if val != "" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "URL custom short is already in use"
+			"error": "URL custom short is already in use",
 		})
 	}
 
@@ -86,13 +89,31 @@ func ShortenURL(c *fiber.Ctx) error {
 		body.Expiry = 24
 	}
 
-	err = r.Set(database.Ctx, id, body.URL, body.Expiry * 3600 * time.Second)
+	err = r.Set(database.Ctx, id, body.URL, body.Expiry*3600*time.Second)
 
 	if err != nil {
 		return c.Status(fiber.StatusInternServerError).JSON(fiber.Map{
-			"error": "Unablel to connect to server"
+			"error": "Unablel to connect to server",
 		})
 	}
 
+	resp := response{
+		URL:            body.URL,
+		CustomShort:    "",
+		Expiry:         body.Expiry,
+		XRateRemaining: 10,
+		XRateLimitRest: 30,
+	}
+
 	r2.Decr(database.Ctx, c.IP())
+
+	val, _ = r2.Get(database.Ctx, c.IP()).Result()
+	resp.RateRemaining, _ = strconv.Atoi(val)
+
+	val, _ = r2.TTL(database.Ctx, c.IP()).Result()
+	resp.XRateLimitReset = ttl / time.Nanosecond / time.Minute
+
+	resp.CustomShort = os.Getenv("DOMAIN") + "/" + id
+
+	return c.Status(fiber.StatusOK).JSON(resp)
 }
