@@ -19,7 +19,7 @@ func RemoveDomainError(url string) bool {
 	newURL = strings.Split(url, "/")[0]
 
 	if newURL == os.Getenv("DOMAIN") {
-		return false
+		return true
 	}
-	return true
+	return false
 }
